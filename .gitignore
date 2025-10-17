@@ -1,43 +1,49 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# ────────────────────────────────
+# Node / React Native / Expo
+# ────────────────────────────────
 node_modules/
-
-# Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
-expo-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Metro & cache
+.packager/
+__generated__/
+*.tmp
+*.log
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# OS junk files
 .DS_Store
-*.pem
+Thumbs.db
 
-# local env files
-.env*.local
+# ────────────────────────────────
+# Firebase / Environment Files
+# ────────────────────────────────
+# ⚠️ Never commit secrets or API keys
+firebaseConfig.js
+.env
+.env.local
+.env.production
+.env.development
 
-# typescript
-*.tsbuildinfo
+# Firebase service accounts or credentials
+serviceAccountKey.json
 
-app-example
+# ────────────────────────────────
+# Python (Firebase Functions)
+# ────────────────────────────────
+functions/venv/
+functions/__pycache__/
+functions/*.pyc
+functions/*.pyo
 
-# generated native folders
-/ios
-/android
+# ────────────────────────────────
+# OS / Editor files
+# ────────────────────────────────
+.idea/
+.vscode/
+*.swp
