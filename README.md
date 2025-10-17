@@ -9,7 +9,7 @@ A medication reminder app built with React Native (Expo) and Firebase.
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/PillPal.git
+git clone https://github.com/NazmulHayat/PillPal.git
 cd PillPal
 npm install
 ```
