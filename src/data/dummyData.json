@@ -1,0 +1,97 @@
+{
+  "users": {
+    "{uid}": {
+      "uid": "57Bfm3hPINdoLLRY5HvzYOdAqLM2",
+      "name": "Nau",
+      "email": "nau@gmail.com",
+      "gender": "female",
+      "age": 96,
+      "emergencyContactName": "Saimu",
+      "emergencyContactEmail": "saimu@gmail.com",
+      "emergencyContactPhone": "+1234567890",
+      "createdAt": "2025-10-18T11:48:26+09:00",
+      "updatedAt": "2025-10-18T11:48:47+09:00",
+      "lastLoginAt": "2025-10-18T13:55:30+09:00"
+    }
+  },
+  "history": {
+    "{uid}": {
+      "medications": [
+        {
+          "medicationId": "hist_abc123xyz",
+          "pillName": "Levofloxacin Ophthalmic Solution 1.5%",
+          "dosageInfo": "Apply one drop to the affected eye(s)",
+          "dosage": 2,
+          "duration": "7 days",
+          "condition": "Bacterial conjunctivitis",
+          "instructions": "Apply one drop to the affected eye(s). Wash hands before use.",
+          "sideEffects": [
+            "eye irritation",
+            "blurred vision",
+            "dry eyes"
+          ],
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/pillpal-11778.appspot.com/...",
+          "scannedAt": "2025-10-18T14:30:00+09:00",
+          "addedToTracking": true
+        },
+        {
+          "medicationId": "hist_def456uvw",
+          "pillName": "Amoxicillin 500mg",
+          "dosageInfo": "1 tablet twice a day",
+          "dosage": 2,
+          "duration": "7 days",
+          "condition": "Bacterial infection",
+          "instructions": "Take with food. Complete the full course.",
+          "sideEffects": [
+            "nausea",
+            "diarrhea",
+            "allergic reaction"
+          ],
+          "imageUrl": "https://firebasestorage.googleapis.com/v0/b/pillpal-11778.appspot.com/...",
+          "scannedAt": "2025-10-18T08:00:00+09:00",
+          "addedToTracking": true
+        }
+      ]
+    }
+  },
+  "tracking": {
+    "{uid}": {
+      "medications": [
+        {
+          "medicationId": "track_abc123",
+          "pillName": "Amoxicillin 500mg",
+          "dosageInfo": "1 tablet twice a day",
+          "dosage": 2,
+          "startDate": "2025-10-18",
+          "endDate": "2025-10-25",
+          "timeSlots": ["08:00", "20:00"],
+          "lastTaken": "2025-10-18T20:05:00+09:00",
+          "nextReminder": "2025-10-19T08:00:00+09:00",
+          "status": "active",
+          "takenCount": 1,
+          "totalDoses": 14,
+          "createdAt": "2025-10-18T08:00:00+09:00",
+          "updatedAt": "2025-10-18T20:05:00+09:00",
+          "historyRef": "hist_def456uvw"
+        },
+        {
+          "medicationId": "track_def456",
+          "pillName": "Vitamin D",
+          "dosageInfo": "1 capsule once a day",
+          "dosage": 1,
+          "startDate": "2025-10-10",
+          "endDate": "2025-11-10",
+          "timeSlots": ["09:00"],
+          "lastTaken": "2025-10-18T09:05:00+09:00",
+          "nextReminder": "2025-10-19T09:00:00+09:00",
+          "status": "active",
+          "takenCount": 8,
+          "totalDoses": 30,
+          "createdAt": "2025-10-10T09:00:00+09:00",
+          "updatedAt": "2025-10-18T09:05:00+09:00",
+          "historyRef": null
+        }
+      ]
+    }
+  }
+}

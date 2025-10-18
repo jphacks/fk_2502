@@ -1,0 +1,26 @@
+{
+    "genericName": null,
+    "dosage": {
+        "amount": null,
+        "unit": null,
+        "frequency": null,
+        "duration": null
+    },
+    "condition": null,
+    "instructions": null,
+    "sideEffects": null
+}{
+    "genericName": "Levofloxacin Ophthalmic Solution 1.5%",
+    "dosage": {
+        "amount": 1,
+        "unit": "drop",
+        "frequency": "as needed",
+        "duration": null
+    },
+    "condition": "Bacterial conjunctivitis",
+    "instructions": "Apply one drop to the affected eye(s).",
+    "sideEffects": [
+        "eye irritation",
+        "blurred vision"
+    ]
+}
