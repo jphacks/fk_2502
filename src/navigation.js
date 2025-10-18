@@ -25,10 +25,10 @@ export default function Navigation() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2196F3',
+        tabBarActiveTintColor: 'rgb(186, 73, 73)',
         tabBarInactiveTintColor: 'gray',
         headerStyle: {
-          backgroundColor: '#2196F3',
+          backgroundColor: 'rgb(186, 73, 73)',
         },
         headerTintColor: '#fff',
         headerTitleStyle: {
