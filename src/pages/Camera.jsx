@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { storage, db } from '../firebaseConfig';
+import MedicineInfoPopup from '../components/MedicineInfoPopup';
 
 const RED = 'rgb(186, 73, 73)';
 
@@ -21,6 +22,8 @@ export default function Camera() {
   const [uploadedImageRef, setUploadedImageRef] = useState(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [isSavedToHistory, setIsSavedToHistory] = useState(false);
+  const [showMedicinePopup, setShowMedicinePopup] = useState(false);
+  const [medicineData, setMedicineData] = useState(null);
   const cameraRef = useRef(null);
 
   // Automatically request permission when component mounts
@@ -167,62 +170,32 @@ export default function Camera() {
       const blob = await response.blob();
       
       // Step 2: Upload image to Firebase Storage for history
-      const imageRef = ref(storage, `pills/${user.uid}/${Date.now()}.jpg`);
-      const uploadResult = await uploadBytes(imageRef, blob);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
+    //   const imageRef = ref(storage, `pills/${user.uid}/${Date.now()}.jpg`);
+    //   const uploadResult = await uploadBytes(imageRef, blob);
+    //   const downloadURL = await getDownloadURL(uploadResult.ref);
       
-      // Store references for potential deletion
-      setUploadedImageRef(uploadResult.ref);
-      setUploadedImageUrl(downloadURL);
+    //   // Store references for potential deletion
+    //   setUploadedImageRef(uploadResult.ref);
+    //   setUploadedImageUrl(downloadURL);
       
-      console.log('Image uploaded to Storage:', downloadURL);
+      // Step 3: Simulate API call with dummy data (since API is down)
+      // Dummy data that matches the expected JSON format
+      const dummyMedicineData = {
+        medication_name: "Panadol",
+        dosage: "1 pill 500mg",
+        instructions: "Take after eating food",
+        frequency_per_day: 2,
+        frequency_per_week: 7,
+        duration: "1 month"
+      };
       
-      // Step 3: Send Firebase Storage URL to Flask API
-      console.log('Sending Firebase Storage URL to Flask API...');
+      // Simulate API delay
       
-      // Step 4: Call Flask API for analysis
-      const flaskApiUrl = 'http://172.16.160.12:6000/process';
-      
-      const analysisResponse = await fetch(flaskApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: downloadURL,
-          user_id: user.uid,
-          timestamp: Date.now()
-        }),
-      });
-      
-      if (!analysisResponse.ok) {
-        throw new Error(`API call failed: ${analysisResponse.status}`);
-      }
-      
-      const analysisResult = await analysisResponse.json();
-      console.log('Analysis result:', analysisResult);
-      
-      // Store analysis results and show results screen
-      setAnalysisResult(analysisResult);
-      setShowResults(true);
+      // Show medicine popup with the data
+      setMedicineData(dummyMedicineData);
       setIsAnalyzing(false);
-      
-      // Show confirmation dialog to save to history
-      Alert.alert(
-        'Save to History?',
-        'Would you like to save this analysis to your medication history?',
-        [
-          {
-            text: 'No, Delete',
-            style: 'destructive',
-            onPress: () => deleteImageAndSkipHistory(),
-          },
-          {
-            text: 'Yes, Save',
-            onPress: () => saveToHistory(analysisResult, downloadURL),
-          },
-        ]
-      );
+      setShowMedicinePopup(true);
+      console.log('POPUPPPPPPP SHOULD BE SHOWING NOW');
       
     } catch (error) {
       console.error('Error analyzing picture:', error);
@@ -315,8 +288,8 @@ export default function Camera() {
     );
   }
 
-  if (capturedImage) {
-    console.log('Rendering captured image preview with URI:', capturedImage);
+  if (capturedImage && !showMedicinePopup) {
+    //console.log('Rendering captured image preview with URI:', capturedImage);
     return (
       <View style={styles.container}>
         <View style={styles.previewContainer}>
@@ -352,6 +325,26 @@ export default function Camera() {
             </View>
           </View>
         </View>
+        
+        {/* Medicine Info Popup */}
+        <MedicineInfoPopup
+          visible={showMedicinePopup}
+          onClose={() => setShowMedicinePopup(false)}
+          medicineData={medicineData}
+        />
+      </View>
+    );
+  }
+  
+  // Show popup even when returning to camera view
+  if (showMedicinePopup) {
+    return (
+      <View style={styles.container}>
+        <MedicineInfoPopup
+          visible={showMedicinePopup}
+          onClose={() => setShowMedicinePopup(false)}
+          medicineData={medicineData}
+        />
       </View>
     );
   }
@@ -398,6 +391,13 @@ export default function Camera() {
           </View>
         </View>
       </CameraView>
+      
+      {/* Medicine Info Popup */}
+      <MedicineInfoPopup
+        visible={showMedicinePopup}
+        onClose={() => setShowMedicinePopup(false)}
+        medicineData={medicineData}
+      />
     </View>
   );
 }
