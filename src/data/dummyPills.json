@@ -1,0 +1,50 @@
+[
+  {
+    "id": "dummy-1",
+    "medicationName": "Amoxicillin 500mg",
+    "genericName": "Amoxicillin",
+    "dosage": {
+      "amount": 500,
+      "unit": "mg",
+      "frequency": "twice a day",
+      "duration": "7 days"
+    },
+    "condition": "Throat infection",
+    "instructions": "Take after meals with water",
+    "doctor": {
+      "name": "Dr. Saito",
+      "clinic": "Minato Health Clinic"
+    },
+    "startDate": "2025-10-18",
+    "endDate": "2025-10-25",
+    "sideEffects": ["nausea", "sleepiness"],
+    "imageUrl": "https://firebasestorage.googleapis.com/meds/amoxicillin-prescription.jpg",
+    "createdAt": "2025-10-18T09:30:00.000Z",
+    "analyzedAt": "2025-10-18T09:45:00.000Z",
+    "dosageLabel": "500 mg, twice a day"
+  },
+  {
+    "id": "dummy-2",
+    "medicationName": "Ibuprofen 200mg",
+    "genericName": "Ibuprofen",
+    "dosage": {
+      "amount": 200,
+      "unit": "mg",
+      "frequency": "every 6 hours as needed",
+      "duration": "5 days"
+    },
+    "condition": "Headache",
+    "instructions": "Take with food if stomach upset",
+    "doctor": {
+      "name": "Dr. Kim",
+      "clinic": "Shin Clinic"
+    },
+    "startDate": "2025-10-10",
+    "endDate": "2025-10-15",
+    "sideEffects": ["dizziness"],
+    "imageUrl": "",
+    "createdAt": "2025-10-10T14:00:00.000Z",
+    "analyzedAt": "2025-10-10T14:05:00.000Z",
+    "dosageLabel": "200 mg, as needed"
+  }
+]
