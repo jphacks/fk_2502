@@ -3,8 +3,6 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
-import dummyData from '../data/dummyData.json';
-
 const RED = 'rgb(186, 73, 73)';
 
 const USE_DUMMY = true;
