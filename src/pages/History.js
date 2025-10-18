@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
+import dummyPills from '../data/dummyPills.json';
 
 const RED = 'rgb(186, 73, 73)';
 
@@ -70,6 +71,12 @@ export default function History() {
             <Text style={styles.detailLabel}>Dosage</Text>
             <Text style={styles.detailValue}>{item.dosage}</Text>
           </View>
+          <View style={styles.pillDetails}>
+            <Text style = {styles.detailLabel}>Duration</Text>
+            <Text style = {styles.detailLabel}>{item.startDate} ~ {item.endDate}</Text>
+            
+          </View>
+          
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Instructions</Text>
             <Text style={styles.detailValue} numberOfLines={2}>
