@@ -248,14 +248,19 @@ export default function Camera() {
       console.log('Saved to tracking collection');
       
       // Step 4: Close popup and reset
-      Alert.alert('Success', 'Medicine schedule saved successfully!');
+      Alert.alert(
+        '✅ Success!', 
+        'Your medicine schedule has been saved successfully!',
+        [{ text: 'OK', style: 'default' }]
+      );
       setShowMedicinePopup(false);
       setMedicineData(null);
       setCapturedImage(null);
       
     } catch (error) {
       console.error('Error saving medicine:', error);
-      Alert.alert('Error', `Failed to save medicine: ${error.message}`);
+      // Re-throw the error so the loading state in popup can handle it
+      throw error;
     }
   };
 

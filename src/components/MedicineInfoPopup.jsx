@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -26,6 +27,7 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const [tempTime, setTempTime] = useState(new Date());
   const [endDate, setEndDate] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (medicineData) {
@@ -33,11 +35,18 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
       // Initialize times based on dosage (number of times per day)
       const dosageCount = medicineData.dosage || 1;
       
-      // Create default times (8 AM, 2 PM, 8 PM)
+      // Create default times (8 AM, 2 PM, 8 PM, 10 PM, etc.)
       const defaultTimes = [
         new Date(new Date().setHours(8, 0, 0, 0)),
         new Date(new Date().setHours(14, 0, 0, 0)),
-        new Date(new Date().setHours(20, 0, 0, 0))
+        new Date(new Date().setHours(20, 0, 0, 0)),
+        new Date(new Date().setHours(22, 0, 0, 0)),
+        new Date(new Date().setHours(10, 0, 0, 0)),
+        new Date(new Date().setHours(16, 0, 0, 0)),
+        new Date(new Date().setHours(18, 0, 0, 0)),
+        new Date(new Date().setHours(6, 0, 0, 0)),
+        new Date(new Date().setHours(12, 0, 0, 0)),
+        new Date(new Date().setHours(23, 0, 0, 0))
       ];
       setTimes(defaultTimes.slice(0, dosageCount));
       
@@ -69,7 +78,9 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
   const calculateEndDate = (start, duration) => {
     if (!start || !duration) return;
     
-    const startDate = new Date(start.split('/').reverse().join('-'));
+    // Parse MM/DD/YYYY format correctly
+    const [month, day, year] = start.split('/');
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
     let endDate = new Date(startDate);
     
     if (duration.includes('month')) {
@@ -99,7 +110,7 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
   //   setSelectedDays(days);
   // };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!startDate) {
       Alert.alert('Error', 'Please select a start date');
       return;
@@ -138,18 +149,31 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
     }
     
     // Prepare schedule data
+    // Convert MM/DD/YYYY to YYYY-MM-DD properly
+    const [startMonth, startDay, startYear] = startDate.split('/');
+    const [endMonth, endDay, endYear] = endDate.split('/');
+    
     const scheduleData = {
       ...editedData,
-      startDate: startDate.split('/').reverse().join('-'), // Convert MM/DD/YYYY to YYYY-MM-DD
-      endDate: endDate.split('/').reverse().join('-'), // Convert MM/DD/YYYY to YYYY-MM-DD
+      startDate: `${startYear}-${startMonth.padStart(2, '0')}-${startDay.padStart(2, '0')}`,
+      endDate: `${endYear}-${endMonth.padStart(2, '0')}-${endDay.padStart(2, '0')}`,
       timeSlots: timeSlots,
       totalDoses: totalDoses,
       nextReminder: nextReminder.toISOString(),
     };
     
-    // Call the onSave callback
+    // Call the onSave callback with loading state
     if (onSave) {
-      onSave(scheduleData);
+      setIsSaving(true);
+      try {
+        await onSave(scheduleData);
+        // Success notification will be shown by parent
+      } catch (error) {
+        console.error('Error in handleSave:', error);
+        Alert.alert('Error', 'Failed to save medicine schedule');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -397,16 +421,42 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData, onSa
 
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={onClose}
+                disabled={isSaving}
+              >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>Save Schedule</Text>
+              <TouchableOpacity 
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+                onPress={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color={WHITE} size="small" />
+                    <Text style={styles.saveButtonText}>Saving...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Schedule</Text>
+                )}
               </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
       </View>
+      
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View style={styles.savingOverlay}>
+          <View style={styles.savingCard}>
+            <ActivityIndicator size="large" color={PRIMARY_RED} />
+            <Text style={styles.savingText}>Saving your medication...</Text>
+            <Text style={styles.savingSubtext}>Please wait</Text>
+          </View>
+        </View>
+      )}
       
       {/* Time Picker Modal */}
       <Modal
@@ -673,10 +723,19 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY_RED,
     alignItems: 'center',
   },
+  saveButtonDisabled: {
+    backgroundColor: '#ccc',
+    opacity: 0.7,
+  },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: WHITE,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   timePickerModalOverlay: {
     flex: 1,
@@ -730,5 +789,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: WHITE,
+  },
+  savingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  savingCard: {
+    backgroundColor: WHITE,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+    minWidth: 200,
+  },
+  savingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: TEXT_DARK,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  savingSubtext: {
+    fontSize: 14,
+    color: TEXT_MEDIUM,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
