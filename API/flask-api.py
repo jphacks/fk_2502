@@ -92,8 +92,11 @@ async def get_med_details(med_name: str):
 
 async def main(content):
     try:
+        print("content is",content)
         med_info = json.loads(content)
-        medicine_name_to_search = med_info[0].get("name")
+        medicine_name_to_search = med_info.get("name")
+        print(medicine_name_to_search)
+
 
         if medicine_name_to_search:
             text = await get_med_details(medicine_name_to_search)
@@ -143,8 +146,8 @@ def process():
                     "name": "name of the medicine",
                     "frequency_per_day": (integer),
                     "dosage":
-                    "duration of intake": (integer of days, else null)
-                    "extra information": (any extra information, string)
+                    "duration_of_intake": (integer of days, else null)
+                    "extra_information": (any extra information, string)
                 }}
                 """
             ],
@@ -153,19 +156,26 @@ def process():
             }
         )
         
-        content = response.text  # old json
-        
+        content = json.loads(response.text)  # old json
+        print("old json")
+        final={}
+        final["pillName"]=content["name"]
+        final["dosageInfo"]=content["extra_information"]
+        final["dosage"]=int(content["frequency_per_day"])
+        final["duration"]=int(content["duration_of_intake"])
         # Run the async main function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        print("getting new info")
         response_final = loop.run_until_complete(main(content))
         loop.close()
         
         if response_final:
-            # Combine both JSONs
-            combined_response = content + response_final
-            print(combined_response)
-            return jsonify({"response": combined_response}), 200
+            final["condition"]=response_final["condition"]
+            final["instructions"]=response_final["instructions"]
+            final["sideEffects"]=response_final["sideEffects"]
+            
+            return jsonify({"response": final}), 200
         else:
             return jsonify({"error": "Failed to get medicine details"}), 500
         
