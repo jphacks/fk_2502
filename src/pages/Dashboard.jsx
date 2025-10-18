@@ -1,448 +1,447 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
+const RED = 'rgb(186, 73, 73)';
+const LIGHT_GRAY = '#f8f9fa';
+const DARK_GRAY = '#6c757d';
+const SUCCESS_GREEN = '#28a745';
+const WHITE = '#ffffff';
+const PRIMARY_RED = 'rgb(186, 73, 73)';
+const LIGHT_BACKGROUND = '#f8f9fa';
+const TEXT_DARK = '#333333';
+const TEXT_MEDIUM = '#6c757d';
+const TEXT_LIGHT = '#adb5bd';
+
+const { width } = Dimensions.get('window');
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalMedications: 0,
-    recentAnalyses: 0,
-    thisWeek: 0,
+  const [todos, setTodos] = useState([
+    { id: 1, text: 'Morning Pill', completed: false, time: '8:00 AM' },
+    { id: 2, text: 'Afternoon Pill', completed: false, time: '2:00 PM' },
+    { id: 3, text: 'Evening Pill', completed: false, time: '8:00 PM' },
+  ]);
+  const [weeklyData, setWeeklyData] = useState({
+    sun: [false, false],
+    mon: [false, false],
+    tue: [false, false],
+    wed: [false, false],
+    thu: [false, false],
+    fri: [false, false],
+    sat: [false, false],
   });
 
+  const progress = todos.filter(todo => todo.completed).length / todos.length;
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+  const tickAnimation = useRef(new Animated.Value(0)).current;
+  const [showTick, setShowTick] = useState(false);
+
   useEffect(() => {
-    if (!user) return;
+    Animated.timing(progressAnimation, {
+      toValue: progress,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
 
-    const q = query(
-      collection(db, 'pills'),
-      where('userId', '==', user.uid)
-    );
+  useEffect(() => {
+    if (progress === 1) {
+      // Show tick animation when 100% complete
+      setTimeout(() => {
+        setShowTick(true);
+        Animated.spring(tickAnimation, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
+      }, 300);
+    } else {
+      setShowTick(false);
+      tickAnimation.setValue(0);
+    }
+  }, [progress]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pills = snapshot.docs.map(doc => doc.data());
-      const now = new Date();
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      setStats({
-        totalMedications: pills.length,
-        recentAnalyses: pills.filter(pill => 
-          pill.createdAt && pill.createdAt.toDate() > weekAgo
-        ).length,
-        thisWeek: pills.filter(pill => 
-          pill.createdAt && pill.createdAt.toDate() > weekAgo
-        ).length,
-      });
-    });
+  const toggleTodo = (id) => {
+    setTodos(todos.map(todo => 
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ));
+  };
 
-    return () => unsubscribe();
-  }, [user]);
+  const getCurrentDay = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[new Date().getDay()];
+  };
+
+  const getGreeting = () => {
+    if (progress === 0) return "Don't forget to take your pills today! 💊";
+    if (progress === 1) return "Great job! All pills taken! 🎉";
+    if (progress >= 0.5) return "You're doing great! Keep it up! 💪";
+    return "Let's get started with your medications! 💊";
+  };
+
+  const getProgressColor = () => {
+    if (progress === 1) return SUCCESS_GREEN;
+    if (progress >= 0.6) return '#ffc107';
+    return RED;
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, styles.statCardPrimary]}>
-          <View style={styles.statIconContainer}>
-            <Text style={styles.statIcon}>💊</Text>
-          </View>
-          <Text style={styles.statNumber}>{stats.totalMedications}</Text>
-          <Text style={styles.statLabel}>Total Medications</Text>
-          <Text style={styles.statSubtext}>All time</Text>
+      {/* Header with 2 columns */}
+      <View style={styles.header}>
+        {/* Left Column - Day and Greeting */}
+        <View style={styles.leftColumn}>
+          <Text style={styles.dayText}>{getCurrentDay()}</Text>
+          <Text style={styles.greetingText}>{getGreeting()}</Text>
+          <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
         </View>
-        <View style={[styles.statCard, styles.statCardSecondary]}>
-          <View style={styles.statIconContainer}>
-            <Text style={styles.statIcon}>📈</Text>
+        
+        {/* Right Column - Progress Circle */}
+        <View style={styles.rightColumn}>
+          <View style={styles.progressCircle}>
+            {/* Background circle */}
+            <View style={styles.progressBackground} />
+            
+            {/* Progress fill - only show when progress > 0 */}
+            {progress > 0 && progress < 1 && (
+              <Animated.View 
+                style={[
+                  styles.progressFill,
+                  {
+                    transform: [{
+                      rotate: progressAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['-90deg', '270deg'],
+                      })
+                    }]
+                  }
+                ]}
+              />
+            )}
+            
+            {/* Full red circle when 100% complete */}
+            {progress === 1 && (
+              <View style={styles.progressComplete} />
+            )}
+            
+            <View style={styles.progressInner}>
+              {progress === 1 && showTick ? (
+                <Animated.View
+                  style={{
+                    transform: [{
+                      scale: tickAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 1.2],
+                      })
+                    }]
+                  }}
+                >
+                  <Text style={styles.tickMark}>✓</Text>
+                </Animated.View>
+              ) : (
+                <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+              )}
+            </View>
           </View>
-          <Text style={styles.statNumber}>{stats.thisWeek}</Text>
-          <Text style={styles.statLabel}>This Week</Text>
-          <Text style={styles.statSubtext}>Recent analyses</Text>
-        </View>
-        <View style={[styles.statCard, styles.statCardTertiary]}>
-          <View style={styles.statIconContainer}>
-            <Text style={styles.statIcon}>⏰</Text>
-          </View>
-          <Text style={styles.statNumber}>{stats.recentAnalyses}</Text>
-          <Text style={styles.statLabel}>Recent</Text>
-          <Text style={styles.statSubtext}>Last 7 days</Text>
+          <Text style={styles.progressLabel}>Daily Progress</Text>
         </View>
       </View>
 
-      {/* Medication Timeline Chart */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Medication Timeline</Text>
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Last 7 Days</Text>
-            <Text style={styles.chartSubtitle}>Analysis Activity</Text>
-          </View>
-          <View style={styles.chartContainer}>
-            <View style={styles.chartBars}>
-              {[1, 2, 3, 4, 5, 6, 7].map((day, index) => (
-                <View key={day} style={styles.chartBarContainer}>
-                  <View style={[
-                    styles.chartBar, 
-                    { 
-                      height: Math.random() * 60 + 20,
-                      backgroundColor: index % 2 === 0 ? '#0ea5e9' : '#06b6d4'
-                    }
-                  ]} />
-                  <Text style={styles.chartBarLabel}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][index]}</Text>
-                </View>
-              ))}
+      {/* To Do List */}
+      <View style={styles.todoContainer}>
+        <Text style={styles.sectionTitle}>Today's Medications</Text>
+        {todos.map((todo) => (
+          <TouchableOpacity
+            key={todo.id}
+            style={[styles.todoItem, todo.completed && styles.todoItemCompleted]}
+            onPress={() => toggleTodo(todo.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.todoLeft}>
+              <View style={[styles.checkbox, todo.completed && styles.checkboxCompleted]}>
+                {todo.completed && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <View style={styles.todoContent}>
+                <Text style={[styles.todoText, todo.completed && styles.todoTextCompleted]}>
+                  {todo.text}
+                </Text>
+                <Text style={[styles.todoTime, todo.completed && styles.todoTimeCompleted]}>
+                  {todo.time}
+                </Text>
+              </View>
             </View>
-          </View>
+            {todo.completed && (
+              <View style={styles.completedBadge}>
+                <Text style={styles.completedText}>Done</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Weekly Tracker */}
+      <View style={styles.weeklyContainer}>
+        <Text style={styles.sectionTitle}>Weekly Tracker</Text>
+        <View style={styles.weeklyGrid}>
+          {Object.entries(weeklyData).map(([day, pills], index) => (
+            <View key={day} style={styles.dayColumn}>
+              <Text style={styles.dayLabel}>{day.toUpperCase().slice(0, 3)}</Text>
+              <View style={styles.pillsContainer}>
+                {pills.map((completed, pillIndex) => (
+                  <View
+                    key={pillIndex}
+                    style={[
+                      styles.pillIndicator,
+                      completed && styles.pillIndicatorCompleted
+                    ]}
+                  >
+                    {completed && <Text style={styles.pillCheckmark}>✓</Text>}
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
         </View>
       </View>
-      
+
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  // Main Container
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-    paddingTop: 80,
+    backgroundColor: LIGHT_BACKGROUND,
+    paddingTop: 20,
   },
-
-  // Header
   header: {
-    backgroundColor: 'transparent',
-    paddingTop: 60,
-    paddingBottom: 0,
-  },
-  headerGradient: {
-    backgroundColor: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginBottom: 20,
   },
-  welcomeSection: {
+  leftColumn: {
     flex: 1,
+    justifyContent: 'center',
   },
-  greeting: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+  rightColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: PRIMARY_RED,
+    marginBottom: 8,
+  },
+  greetingText: {
+    fontSize: 20,
+    color: TEXT_MEDIUM,
     marginBottom: 4,
-    fontWeight: '500',
   },
   userName: {
     fontSize: 22,
     fontWeight: '600',
-    color: 'white',
-    marginBottom: 4,
+    color: TEXT_DARK,
   },
-  userSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '400',
-  },
-  avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  avatarInner: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatar: {
-    fontSize: 28,
-  },
-
-  // Page Title
-  pageTitleContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: 'white',
-    marginTop: -12,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  pageTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '400',
-  },
-
-  // Stats Container
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  statCardPrimary: {
-    backgroundColor: '#0ea5e9',
-  },
-  statCardSecondary: {
-    backgroundColor: '#8b5cf6',
-  },
-  statCardTertiary: {
-    backgroundColor: '#f59e0b',
-  },
-  statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statIcon: {
-    fontSize: 20,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-    marginBottom: 2,
-  },
-  statSubtext: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
-  },
-
-  // Sections
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 16,
-  },
-
-  // Chart Styles
-  chartCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  chartHeader: {
-    marginBottom: 24,
-  },
-  chartTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  chartSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  chartContainer: {
-    height: 120,
-    justifyContent: 'center',
-  },
-  chartBars: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 80,
-  },
-  chartBarContainer: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  chartBar: {
-    width: 20,
-    borderRadius: 10,
-    marginBottom: 8,
-    minHeight: 4,
-  },
-  chartBarLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-
-  // Quick Actions
-  actionsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  progressCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: WHITE,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  actionIconText: {
-    fontSize: 24,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-
-  // Recent Activity
-  activityCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    elevation: 8,
   },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+  progressBackground: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 8,
+    borderColor: '#e9ecef',
   },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f9ff',
+  progressFill: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 8,
+    borderColor: 'transparent',
+    borderTopColor: PRIMARY_RED,
+    borderRightColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+  },
+  progressComplete: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 8,
+    borderColor: PRIMARY_RED,
+  },
+  tickMark: {
+    color: SUCCESS_GREEN,
+    fontSize: 50,
+    fontWeight: 'bold',
+  },
+  progressInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: LIGHT_BACKGROUND,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-    borderWidth: 1,
-    borderColor: '#e0f2fe',
   },
-  activityIconText: {
-    fontSize: 18,
+  progressText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: PRIMARY_RED,
   },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
+  progressLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 2,
+    color: TEXT_MEDIUM,
   },
-  activitySubtitle: {
-    fontSize: 14,
-    color: '#64748b',
+  todoContainer: {
+    marginHorizontal: 20,
+    marginBottom: 30,
   },
-  activityTime: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-
-  // Tips
-  tipCard: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-  },
-  tipIcon: {
+  sectionTitle: {
     fontSize: 20,
-    marginRight: 12,
-    marginTop: 2,
+    fontWeight: 'bold',
+    color: TEXT_DARK,
+    marginBottom: 15,
   },
-  tipText: {
+  todoItem: {
+    backgroundColor: WHITE,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  todoItemCompleted: {
+    backgroundColor: LIGHT_BACKGROUND,
+    opacity: 0.8,
+  },
+  todoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: TEXT_MEDIUM,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  checkboxCompleted: {
+    backgroundColor: SUCCESS_GREEN,
+    borderColor: SUCCESS_GREEN,
+  },
+  checkmark: {
+    color: WHITE,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  todoContent: {
+    flex: 1,
+  },
+  todoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: TEXT_DARK,
+    marginBottom: 4,
+  },
+  todoTextCompleted: {
+    textDecorationLine: 'line-through',
+    color: TEXT_MEDIUM,
+  },
+  todoTime: {
     fontSize: 14,
-    color: '#92400e',
-    lineHeight: 20,
+    color: TEXT_MEDIUM,
+  },
+  todoTimeCompleted: {
+    color: TEXT_LIGHT,
+  },
+  completedBadge: {
+    backgroundColor: SUCCESS_GREEN,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  completedText: {
+    color: WHITE,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  weeklyContainer: {
+    marginHorizontal: 20,
+    marginBottom: 30,
+  },
+  weeklyGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: WHITE,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dayColumn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dayLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TEXT_MEDIUM,
+    marginBottom: 8,
+  },
+  pillsContainer: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  pillIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pillIndicatorCompleted: {
+    backgroundColor: SUCCESS_GREEN,
+  },
+  pillCheckmark: {
+    color: WHITE,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
-
-
