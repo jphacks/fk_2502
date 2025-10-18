@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
-
 const RED = 'rgb(186, 73, 73)';
+
+const USE_DUMMY = true;
 
 export default function History() {
   const { user } = useAuth();
@@ -12,29 +13,40 @@ export default function History() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // use 'history' collection and pick medications that belong to the current user
     if (!user) return;
 
-    const q = query(
-      collection(db, 'pills'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    const col = collection(db, 'history');
+    const unsubscribe = onSnapshot(col, (snapshot) => {
+      try {
+        const meds = snapshot.docs.flatMap(doc => {
+          const data = doc.data() || {};
+          // match by common uid field names or document id (adjust if your schema is different)
+          const matchesUser = data.userId === user.uid || data.uid === user.uid || doc.id === user.uid;
+          if (!matchesUser) return [];
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Firestore snapshot received:', snapshot.docs.length, 'documents');
-      const pillsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Pill data:', data);
-        return {
-          id: doc.id,
-          ...data
-        };
-      });
-      console.log('Processed pills data:', pillsData);
-      setPills(pillsData);
-      setLoading(false);
+          return (data.medications || []).map(m => ({
+            id: m.medicationId || `${doc.id}_${m.pillName}`,
+            medicineName: m.pillName,
+            dosage: m.dosage ?? m.dosageInfo ?? '',
+            instructions: m.instructions ?? '',
+            imageUrl: m.imageUrl ?? null,
+            startDate: m.startDate ?? null,
+            endDate: m.endDate ?? null,
+            duration: m.duration ?? null,
+            analyzedAt: m.scannedAt ?? null,
+            createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
+          }));
+        });
+
+        setPills(meds);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error processing history snapshot:', err);
+        setLoading(false);
+      }
     }, (error) => {
-      console.error('Error fetching pills:', error);
+      console.error('Error fetching history:', error);
       setLoading(false);
     });
 
@@ -43,8 +55,18 @@ export default function History() {
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Unknown date';
-    const date = timestamp.toDate();
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    // handle Firestore Timestamp, ISO string, or Date
+    let dateObj;
+    if (typeof timestamp?.toDate === 'function') {
+      dateObj = timestamp.toDate();
+    } else if (typeof timestamp === 'string') {
+      dateObj = new Date(timestamp);
+    } else if (timestamp instanceof Date) {
+      dateObj = timestamp;
+    } else {
+      dateObj = new Date(timestamp);
+    }
+    return dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
   };
 
   const renderPillItem = ({ item }) => (
@@ -72,7 +94,7 @@ export default function History() {
           </View>
           <View style={styles.pillDetails}>
             <Text style = {styles.detailLabel}>Duration</Text>
-            <Text style = {styles.detailLabel}>{item.startDate} ~ {item.endDate}</Text>
+            <Text style = {styles.detailLabel}>{item.duration}</Text>
             
           </View>
           
