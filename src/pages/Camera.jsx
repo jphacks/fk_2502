@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { storage, db } from '../firebaseConfig';
 import MedicineInfoPopup from '../components/MedicineInfoPopup';
@@ -92,13 +93,21 @@ export default function Camera() {
     }
   };
 
+  const handleCloseMedicinePopup = () => {
+    // User cancelled - just close popup and reset to camera
+    setShowMedicinePopup(false);
+    setMedicineData(null);
+    setCapturedImage(null);
+  };
+
   const retakePicture = () => {
+    // Reset everything for a new capture
     setCapturedImage(null);
     setAnalysisResult(null);
     setShowResults(false);
-    setUploadedImageRef(null);
-    setUploadedImageUrl(null);
     setIsSavedToHistory(false);
+    setShowMedicinePopup(false);
+    setMedicineData(null);
   };
 
   const closeResults = () => {
@@ -142,7 +151,6 @@ export default function Camera() {
         // Add structured data for easy display in history
         medicineName: analysisResult.name || analysisResult.medicine || 'Unknown',
         dosage: analysisResult.times_per_day || analysisResult.dosage || 'Not specified',
-        instructions: analysisResult.information_of_medicine || analysisResult.instructions || 'No instructions',
         // Add metadata
         source: 'camera',
         apiUsed: 'flask',
@@ -160,42 +168,161 @@ export default function Camera() {
     }
   };
 
+  const handleSaveMedicine = async (scheduleData) => {
+    if (!user || !capturedImage) return;
+    
+    try {
+      console.log('Saving medicine with schedule:', scheduleData);
+      
+      // Upload image to Firebase Storage now that user confirmed
+      console.log('Uploading image to Firebase Storage...');
+      const response = await fetch(capturedImage);
+      const blob = await response.blob();
+      const imageRef = ref(storage, `prescriptions/${user.uid}/${Date.now()}.jpg`);
+      const uploadResult = await uploadBytes(imageRef, blob);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+      console.log('Image uploaded to Storage:', downloadURL);
+      
+      // Step 1: Generate unique medication ID
+      const medicationId = `med_${Date.now()}`;
+      const timestamp = new Date().toISOString();
+      
+      // Step 2: Save to history collection
+      const historyRef = doc(db, 'history', user.uid);
+      const historyDoc = await getDoc(historyRef);
+      
+      const historyEntry = {
+        medicationId: medicationId,
+        pillName: scheduleData.pillName,
+        dosageInfo: scheduleData.dosageInfo,
+        dosage: scheduleData.dosage,
+        duration: scheduleData.duration,
+        condition: scheduleData.condition || '',
+        instructions: scheduleData.instructions || '',
+        sideEffects: scheduleData.sideEffects || [],
+        imageUrl: downloadURL,
+        scannedAt: timestamp,
+        addedToTracking: true,
+      };
+      
+      if (historyDoc.exists()) {
+        const existingData = historyDoc.data();
+        const medications = existingData.medications || [];
+        medications.push(historyEntry);
+        await setDoc(historyRef, { medications }, { merge: true });
+      } else {
+        await setDoc(historyRef, { medications: [historyEntry] });
+      }
+      console.log('Saved to history collection');
+      
+      // Step 3: Save to tracking collection
+      const trackingRef = doc(db, 'tracking', user.uid);
+      const trackingDoc = await getDoc(trackingRef);
+      
+      const trackingEntry = {
+        medicationId: medicationId,
+        pillName: scheduleData.pillName,
+        dosageInfo: scheduleData.dosageInfo,
+        dosage: scheduleData.dosage,
+        startDate: scheduleData.startDate,
+        endDate: scheduleData.endDate,
+        timeSlots: scheduleData.timeSlots,
+        lastTaken: null,
+        nextReminder: scheduleData.nextReminder,
+        status: 'active',
+        takenCount: 0,
+        totalDoses: scheduleData.totalDoses,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        historyRef: medicationId,
+      };
+      
+      if (trackingDoc.exists()) {
+        const existingData = trackingDoc.data();
+        const medications = existingData.medications || [];
+        medications.push(trackingEntry);
+        await setDoc(trackingRef, { medications }, { merge: true });
+      } else {
+        await setDoc(trackingRef, { medications: [trackingEntry] });
+      }
+      console.log('Saved to tracking collection');
+      
+      // Step 4: Close popup and reset
+      Alert.alert('Success', 'Medicine schedule saved successfully!');
+      setShowMedicinePopup(false);
+      setMedicineData(null);
+      setCapturedImage(null);
+      
+    } catch (error) {
+      console.error('Error saving medicine:', error);
+      Alert.alert('Error', `Failed to save medicine: ${error.message}`);
+    }
+  };
+
   const analyzePicture = async () => {
     if (!capturedImage || !user) return;
     
     setIsAnalyzing(true);
     try {
-      // Step 1: Prepare the image file for upload
-      const response = await fetch(capturedImage);
-      const blob = await response.blob();
+      // Step 1: Convert image to JPEG format (handles HEIC from iPhone)
+      console.log('Converting image to JPEG...');
+      const manipulatedImage = await manipulateAsync(
+        capturedImage,
+        [], // No additional manipulations, just format conversion
+        { 
+          compress: 0.8, 
+          format: SaveFormat.JPEG 
+        }
+      );
+      const jpegImageUri = manipulatedImage.uri;
+      console.log('Image converted to JPEG:', jpegImageUri);
       
-      // Step 2: Upload image to Firebase Storage for history
-    //   const imageRef = ref(storage, `pills/${user.uid}/${Date.now()}.jpg`);
-    //   const uploadResult = await uploadBytes(imageRef, blob);
-    //   const downloadURL = await getDownloadURL(uploadResult.ref);
+      // Step 2: Send JPEG file directly to API (don't upload to Storage yet)
+      const API_URL = 'http://172.20.10.10:6000/process';
+      console.log('Sending JPEG file to API:', API_URL);
       
-    //   // Store references for potential deletion
-    //   setUploadedImageRef(uploadResult.ref);
-    //   setUploadedImageUrl(downloadURL);
+      // Create FormData to send file
+      const formData = new FormData();
+      formData.append('file', {
+        uri: jpegImageUri,
+        type: 'image/jpeg',
+        name: 'prescription.jpg',
+      });
       
-      // Step 3: Simulate API call with dummy data (since API is down)
-      // Dummy data that matches the expected JSON format
-      const dummyMedicineData = {
-        medication_name: "Panadol",
-        dosage: "1 pill 500mg",
-        instructions: "Take after eating food",
-        frequency_per_day: 2,
-        frequency_per_week: 7,
-        duration: "1 month"
+      const apiResponse = await fetch(API_URL, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - let fetch set it automatically with boundary
+      });
+      
+      if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        throw new Error(`API returned status ${apiResponse.status}: ${errorText}`);
+      }
+      
+      const apiData = await apiResponse.json();
+      console.log('API Response:', apiData);
+      
+      // Step 3: Extract data from response field
+      const responseData = apiData.response || apiData;
+      console.log('Response data:', responseData);
+      
+      // Step 4: Transform API response to match our structure
+      const medicineData = {
+        pillName: responseData.pillName || 'Unknown Medicine',
+        dosageInfo: responseData.dosageInfo || '',
+        dosage: responseData.dosage || 1,
+        duration: responseData.duration ? `${responseData.duration} days` : '7 days',
+        condition: responseData.condition || '',
+        instructions: responseData.instructions || '',  
+        sideEffects: responseData.sideEffects || [],
       };
       
-      // Simulate API delay
-      
       // Show medicine popup with the data
-      setMedicineData(dummyMedicineData);
+      setMedicineData(medicineData);
       setIsAnalyzing(false);
       setShowMedicinePopup(true);
-      console.log('POPUPPPPPPP SHOULD BE SHOWING NOW');
+      console.log('Medicine popup shown with data:', medicineData);
       
     } catch (error) {
       console.error('Error analyzing picture:', error);
@@ -254,7 +381,7 @@ export default function Camera() {
               <View style={styles.resultItem}>
                 <Text style={styles.resultLabel}>Dosage:</Text>
                 <Text style={styles.resultValue}>
-                  {analysisResult.times_per_day ? `${analysisResult.times_per_day} times per day` : analysisResult.dosage}
+                  {analysisResult.times_per_day ? `${analysisResult.dosage} times per day` : analysisResult.dosage}
                 </Text>
               </View>
             )}
@@ -329,8 +456,9 @@ export default function Camera() {
         {/* Medicine Info Popup */}
         <MedicineInfoPopup
           visible={showMedicinePopup}
-          onClose={() => setShowMedicinePopup(false)}
+          onClose={handleCloseMedicinePopup}
           medicineData={medicineData}
+          onSave={handleSaveMedicine}
         />
       </View>
     );
@@ -342,8 +470,9 @@ export default function Camera() {
       <View style={styles.container}>
         <MedicineInfoPopup
           visible={showMedicinePopup}
-          onClose={() => setShowMedicinePopup(false)}
+          onClose={handleCloseMedicinePopup}
           medicineData={medicineData}
+          onSave={handleSaveMedicine}
         />
       </View>
     );
@@ -395,8 +524,9 @@ export default function Camera() {
       {/* Medicine Info Popup */}
       <MedicineInfoPopup
         visible={showMedicinePopup}
-        onClose={() => setShowMedicinePopup(false)}
+        onClose={handleCloseMedicinePopup}
         medicineData={medicineData}
+        onSave={handleSaveMedicine}
       />
     </View>
   );

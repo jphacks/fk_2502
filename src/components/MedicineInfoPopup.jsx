@@ -18,9 +18,8 @@ const TEXT_DARK = '#333333';
 const TEXT_MEDIUM = '#6c757d';
 const WHITE = '#ffffff';
 
-export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
+export default function MedicineInfoPopup({ visible, onClose, medicineData, onSave }) {
   const [editedData, setEditedData] = useState(medicineData);
-  // const [selectedDays, setSelectedDays] = useState([]);
   const [startDate, setStartDate] = useState('');
   const [times, setTimes] = useState([new Date(), new Date(), new Date()]);
   const [showTimePickerModal, setShowTimePickerModal] = useState(false);
@@ -28,13 +27,11 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
   const [tempTime, setTempTime] = useState(new Date());
   const [endDate, setEndDate] = useState('');
 
-  // const days = ['MON', 'TUES', 'WED', 'THURS', 'FRI', 'SAT', 'SUN'];
-
   useEffect(() => {
     if (medicineData) {
       setEditedData(medicineData);
-      // Initialize times based on frequency
-      const frequency = medicineData.frequency_per_day || 1;
+      // Initialize times based on dosage (number of times per day)
+      const dosageCount = medicineData.dosage || 1;
       
       // Create default times (8 AM, 2 PM, 8 PM)
       const defaultTimes = [
@@ -42,7 +39,7 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
         new Date(new Date().setHours(14, 0, 0, 0)),
         new Date(new Date().setHours(20, 0, 0, 0))
       ];
-      setTimes(defaultTimes.slice(0, frequency));
+      setTimes(defaultTimes.slice(0, dosageCount));
       
       // Set default start date to today
       const today = new Date();
@@ -54,11 +51,13 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
     } else {
       // Initialize with empty data if no medicineData provided
       setEditedData({
-        medication_name: '',
-        dosage: '',
+        pillName: '',
+        dosageInfo: '',
+        dosage: 1,
+        duration: '',
+        condition: '',
         instructions: '',
-        frequency_per_day: 1,
-        duration: ''
+        sideEffects: []
       });
       setTimes([new Date(new Date().setHours(8, 0, 0, 0))]);
       const today = new Date();
@@ -106,21 +105,68 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
       return;
     }
     
-    if (times.length === 0) {
-      Alert.alert('Error', 'Please set at least one time');
+    if (!editedData.dosage || editedData.dosage < 1) {
+      Alert.alert('Error', 'Please enter how many times per day (at least 1)');
+      return;
+    }
+    
+    if (times.length === 0 || times.length !== editedData.dosage) {
+      Alert.alert('Error', `Please set ${editedData.dosage} reminder time(s)`);
       return;
     }
 
-    Alert.alert(
-      'Success!',
-      'Medicine schedule has been saved successfully!',
-      [
-        {
-          text: 'OK',
-          onPress: onClose
-        }
-      ]
-    );
+    // Calculate total doses
+    const durationInDays = calculateDurationInDays(editedData.duration);
+    const totalDoses = durationInDays * editedData.dosage;
+    
+    // Format time slots as HH:mm strings
+    const timeSlots = times.map(time => {
+      const hours = String(time.getHours()).padStart(2, '0');
+      const minutes = String(time.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    });
+    
+    // Calculate next reminder (first time slot today or tomorrow)
+    const now = new Date();
+    const firstTime = times[0];
+    let nextReminder = new Date();
+    nextReminder.setHours(firstTime.getHours(), firstTime.getMinutes(), 0, 0);
+    
+    // If first time has passed today, set to tomorrow
+    if (nextReminder <= now) {
+      nextReminder.setDate(nextReminder.getDate() + 1);
+    }
+    
+    // Prepare schedule data
+    const scheduleData = {
+      ...editedData,
+      startDate: startDate.split('/').reverse().join('-'), // Convert MM/DD/YYYY to YYYY-MM-DD
+      endDate: endDate.split('/').reverse().join('-'), // Convert MM/DD/YYYY to YYYY-MM-DD
+      timeSlots: timeSlots,
+      totalDoses: totalDoses,
+      nextReminder: nextReminder.toISOString(),
+    };
+    
+    // Call the onSave callback
+    if (onSave) {
+      onSave(scheduleData);
+    }
+  };
+
+  const calculateDurationInDays = (duration) => {
+    if (!duration) return 7; // Default to 7 days
+    
+    const durationStr = duration.toLowerCase();
+    if (durationStr.includes('month')) {
+      const months = parseInt(durationStr.split(' ')[0]) || 1;
+      return months * 30;
+    } else if (durationStr.includes('week')) {
+      const weeks = parseInt(durationStr.split(' ')[0]) || 1;
+      return weeks * 7;
+    } else if (durationStr.includes('day')) {
+      return parseInt(durationStr.split(' ')[0]) || 7;``
+    }
+    return 7; // Default
   };
 
   const formatTime = (date) => {
@@ -185,18 +231,18 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
                 <Text style={styles.label}>Medication name:</Text>
                 <TextInput
                   style={styles.input}
-                  value={editedData?.medication_name || ''}
-                  onChangeText={(value) => updateField('medication_name', value)}
+                  value={editedData?.pillName || ''}
+                  onChangeText={(value) => updateField('pillName', value)}
                   placeholder="Enter medication name"
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Dosage:</Text>
+                <Text style={styles.label}>Dosage Info:</Text>
                 <TextInput
                   style={styles.input}
-                  value={editedData?.dosage || ''}
-                  onChangeText={(value) => updateField('dosage', value)}
+                  value={editedData?.dosageInfo || ''}
+                  onChangeText={(value) => updateField('dosageInfo', value)}
                   placeholder="e.g., 1 pill 100mg"
                 />
               </View>
@@ -214,26 +260,47 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
               </View>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Frequency per day:</Text>
+                <Text style={styles.label}>How many times per day:</Text>
                 <TextInput
                   style={styles.input}
-                  value={editedData?.frequency_per_day?.toString() || ''}
-                  onChangeText={(value) => updateField('frequency_per_day', parseInt(value) || 0)}
+                  value={editedData?.dosage?.toString() || ''}
+                  onChangeText={(value) => {
+                    // Allow empty string while editing
+                    if (value === '') {
+                      updateField('dosage', '');
+                      return;
+                    }
+                    
+                    const newDosage = parseInt(value);
+                    if (!isNaN(newDosage) && newDosage > 0 && newDosage <= 10) {
+                      updateField('dosage', newDosage);
+                      // Update times array based on new dosage
+                      const defaultTimes = [
+                        new Date(new Date().setHours(8, 0, 0, 0)),
+                        new Date(new Date().setHours(14, 0, 0, 0)),
+                        new Date(new Date().setHours(20, 0, 0, 0)),
+                        new Date(new Date().setHours(22, 0, 0, 0)),
+                        new Date(new Date().setHours(10, 0, 0, 0)),
+                        new Date(new Date().setHours(16, 0, 0, 0)),
+                        new Date(new Date().setHours(18, 0, 0, 0)),
+                        new Date(new Date().setHours(6, 0, 0, 0)),
+                        new Date(new Date().setHours(12, 0, 0, 0)),
+                        new Date(new Date().setHours(23, 0, 0, 0))
+                      ];
+                      setTimes(defaultTimes.slice(0, newDosage));
+                    }
+                  }}
+                  onBlur={() => {
+                    // When field loses focus, ensure it has a valid value
+                    if (!editedData?.dosage || editedData.dosage === '') {
+                      updateField('dosage', 0);
+                      setTimes([new Date(new Date().setHours(8, 0, 0, 0))]);
+                    }
+                  }}
                   placeholder="2"
                   keyboardType="numeric"
                 />
               </View>
-
-              {/* <View style={styles.halfField}>
-                <Text style={styles.label}>Frequency per week:</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editedData?.frequency_per_week?.toString() || ''}
-                  onChangeText={(value) => updateField('frequency_per_week', parseInt(value) || 0)}
-                  placeholder="7"
-                  keyboardType="numeric"
-                />
-              </View> */}
 
               <View style={styles.field}>
                 <Text style={styles.label}>Duration:</Text>
@@ -244,7 +311,7 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
                     updateField('duration', value);
                     calculateEndDate(startDate, value);
                   }}
-                  placeholder="e.g., 1 month"
+                  placeholder="e.g., 30 days"
                 />
               </View>
             </View>
@@ -304,18 +371,26 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
                 <Text style={styles.label}>Daily Reminders:</Text>
                 <Text style={styles.helpText}>Tap to change the time</Text>
                 <View style={styles.timesContainer}>
-                  {times.map((time, index) => (
-                    <TouchableOpacity 
-                      key={index}
-                      style={styles.timePickerButton}
-                      onPress={() => openTimePicker(index)}
-                    >
-                      <Text style={styles.timePickerLabel}>
-                        {index === 0 ? '1st dose' : index === 1 ? '2nd dose' : '3rd dose'}
-                      </Text>
-                      <Text style={styles.timePickerValue}>{formatTime(time)}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {times.map((time, index) => {
+                    const ordinalSuffix = (n) => {
+                      const s = ['th', 'st', 'nd', 'rd'];
+                      const v = n % 100;
+                      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                    };
+                    
+                    return (
+                      <TouchableOpacity 
+                        key={index}
+                        style={styles.timePickerButton}
+                        onPress={() => openTimePicker(index)}
+                      >
+                        <Text style={styles.timePickerLabel}>
+                          {ordinalSuffix(index + 1)} dose
+                        </Text>
+                        <Text style={styles.timePickerValue}>{formatTime(time)}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             </View>
@@ -344,7 +419,12 @@ export default function MedicineInfoPopup({ visible, onClose, medicineData }) {
           <View style={styles.timePickerModalContent}>
             <View style={styles.timePickerHeader}>
               <Text style={styles.timePickerTitle}>
-                Select Time for {selectedTimeIndex === 0 ? '1st' : selectedTimeIndex === 1 ? '2nd' : '3rd'} Dose
+                Select Time for {(() => {
+                  const n = selectedTimeIndex + 1;
+                  const s = ['th', 'st', 'nd', 'rd'];
+                  const v = n % 100;
+                  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+                })()} Dose
               </Text>
             </View>
             
