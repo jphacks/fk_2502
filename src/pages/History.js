@@ -15,48 +15,40 @@ export default function History() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (USE_DUMMY) {
-      // take the first user's history entry and map its medications
-      const firstHistory = Object.values(dummyData.history || {})[0];
-      const meds = (firstHistory?.medications || []).map(m => ({
-        id: m.medicationId,
-        medicineName: m.pillName,
-        dosage: m.dosage ?? m.dosageInfo ?? '',
-        instructions: m.instructions ?? '',
-        imageUrl: m.imageUrl ?? null,
-        startDate: m.startDate ?? null,
-        endDate: m.endDate ?? null,
-        duration: m.duration ?? null,
-        analyzedAt: m.scannedAt ?? null,
-        createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
-      }));
-      setPills(meds);
-      setLoading(false);
-      return;
-    }
+    // use 'history' collection and pick medications that belong to the current user
     if (!user) return;
 
-    const q = query(
-      collection(db, 'pills'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    ); 
+    const col = collection(db, 'history');
+    const unsubscribe = onSnapshot(col, (snapshot) => {
+      try {
+        const meds = snapshot.docs.flatMap(doc => {
+          const data = doc.data() || {};
+          // match by common uid field names or document id (adjust if your schema is different)
+          const matchesUser = data.userId === user.uid || data.uid === user.uid || doc.id === user.uid;
+          if (!matchesUser) return [];
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('Firestore snapshot received:', snapshot.docs.length, 'documents');
-      const pillsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Pill data:', data);
-        return {
-          id: doc.id,
-          ...data
-        };
-      });
-      console.log('Processed pills data:', pillsData);
-      setPills(pillsData);
-      setLoading(false);
+          return (data.medications || []).map(m => ({
+            id: m.medicationId || `${doc.id}_${m.pillName}`,
+            medicineName: m.pillName,
+            dosage: m.dosage ?? m.dosageInfo ?? '',
+            instructions: m.instructions ?? '',
+            imageUrl: m.imageUrl ?? null,
+            startDate: m.startDate ?? null,
+            endDate: m.endDate ?? null,
+            duration: m.duration ?? null,
+            analyzedAt: m.scannedAt ?? null,
+            createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
+          }));
+        });
+
+        setPills(meds);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error processing history snapshot:', err);
+        setLoading(false);
+      }
     }, (error) => {
-      console.error('Error fetching pills:', error);
+      console.error('Error fetching history:', error);
       setLoading(false);
     });
 
