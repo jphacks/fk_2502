@@ -1,0 +1,33 @@
+{
+    "レボフロキサシン点眼液1.5%": {
+        "genericName": "Levofloxacin Ophthalmic Solution 1.5%",
+        "dosage": {
+            "amount": 1,
+            "unit": "drop",
+            "frequency": "as needed",
+            "duration": null
+        },
+        "condition": "Bacterial conjunctivitis",
+        "instructions": "Apply one drop to the affected eye(s).",
+        "sideEffects": [
+            "eye irritation",
+            "blurred vision"
+        ]
+    },
+    "フルオロメトロン点眼液0.1%": {
+        "genericName": "Eszopiclone",
+        "dosage": {
+            "amount": 1,
+            "unit": "mg",
+            "frequency": "once daily",
+            "duration": null
+        },
+        "condition": "insomnia",
+        "instructions": "Take just before bedtime. Avoid alcohol.",
+        "sideEffects": [
+            "taste abnormality",
+            "sleepiness",
+            "headache"
+        ]
+    }
+}
