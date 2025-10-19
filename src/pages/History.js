@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
@@ -11,6 +11,9 @@ export default function History() {
   const { user } = useAuth();
   const [pills, setPills] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
   if (!user) {
@@ -56,6 +59,24 @@ export default function History() {
 
   return () => unsubscribe();
 }, [user]);
+
+  // Derived filtered list (case-insensitive search across medicineName, dosage, instructions)
+  const filteredPills = useMemo(() => {
+    if (!searchQuery?.trim()) return pills;
+    const q = searchQuery.trim().toLowerCase();
+    const normalize = (v) => {
+      if (v == null) return '';
+      if (typeof v === 'string') return v.toLowerCase();
+      try { return String(v).toLowerCase(); } catch { return ''; }
+    };
+    return pills.filter(p => {
+      const name = normalize(p.medicineName);
+      const dosage = normalize(p.dosage);
+      const instr = normalize(p.instructions);
+      return name.includes(q) || dosage.includes(q) || instr.includes(q);
+    });
+  }, [pills, searchQuery]);
+
   const renderPillItem = ({ item }) => (
     <TouchableOpacity style={styles.pillCard} onPress={() => showPillDetails(item)}>
       <View style={styles.pillCardContent}>
@@ -171,364 +192,407 @@ export default function History() {
 
   return (
     <View style={styles.container}>
-      {/* Medication List */}
-      <FlatList
-        data={pills}
-        renderItem={renderPillItem}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
-  );
-}
+      {/* Search bar above the medicine cards */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search medicines..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery ? (
+          <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+       {/* Medication List */}
+       <FlatList
+        data={filteredPills}
+         renderItem={renderPillItem}
+         keyExtractor={(item) => item.id}
+         style={styles.list}
+         contentContainerStyle={styles.listContent}
+         showsVerticalScrollIndicator={false}
+       />
+     </View>
+   );
+ }
+ 
+ // Helper: safe date formatter used by History
+ const formatDate = (value) => {
+   if (!value) return '';
+   try {
+     const d = value instanceof Date
+       ? value
+       : (typeof value === 'number' ? new Date(value) : new Date(value));
+     if (isNaN(d.getTime())) return '';
+     return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+   } catch (e) {
+     return '';
+   }
+ };
+ 
+ const styles = StyleSheet.create({
+   // Main Container
+   container: {
+     flex: 1,
+     backgroundColor: '#f8fafc',
+     paddingTop: 80,
+   },
+   searchContainer: {
+     paddingHorizontal: 16,
+     paddingBottom: 8,
+     flexDirection: 'row',
+     alignItems: 'center',
+     backgroundColor: 'transparent',
+   },
+   searchInput: {
+     flex: 1,
+     backgroundColor: 'white',
+     borderRadius: 12,
+     paddingHorizontal: 12,
+     paddingVertical: 10,
+     borderWidth: 1,
+     borderColor: '#e2e8f0',
+     fontSize: 16,
+   },
+   clearButton: {
+     marginLeft: 8,
+     padding: 8,
+     justifyContent: 'center',
+     alignItems: 'center',
+   },
+   clearButtonText: {
+     fontSize: 18,
+     color: '#64748b',
+   },
 
-// Helper: safe date formatter used by History
-const formatDate = (value) => {
-  if (!value) return '';
-  try {
-    const d = value instanceof Date
-      ? value
-      : (typeof value === 'number' ? new Date(value) : new Date(value));
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  } catch (e) {
-    return '';
-  }
-};
+   // Loading States
+   loadingContainer: {
+     flex: 1,
+     backgroundColor: '#f8fafc',
+     justifyContent: 'center',
+     alignItems: 'center',
+     padding: 20,
+   },
+   loadingCard: {
+     backgroundColor: 'white',
+     borderRadius: 16,
+     padding: 32,
+     alignItems: 'center',
+     shadowColor: '#1e40af',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.1,
+     shadowRadius: 12,
+     elevation: 8,
+     maxWidth: 320,
+     borderWidth: 1,
+     borderColor: '#e2e8f0',
+   },
+   loadingSpinner: {
+     width: 48,
+     height: 48,
+     borderRadius: 24,
+     borderWidth: 4,
+     borderColor: '#e0f2fe',
+     borderTopColor: '#0ea5e9',
+     marginBottom: 24,
+   },
+   loadingTitle: {
+     fontSize: 22,
+     fontWeight: '600',
+     color: '#1e293b',
+     marginBottom: 8,
+     textAlign: 'center',
+   },
+   loadingSubtitle: {
+     fontSize: 16,
+     color: '#64748b',
+     textAlign: 'center',
+     lineHeight: 24,
+     marginBottom: 16,
+   },
+   debugText: {
+     fontSize: 12,
+     color: '#94a3b8',
+     textAlign: 'center',
+   },
 
-const styles = StyleSheet.create({
-  // Main Container
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    paddingTop: 80,
-  },
+   // Empty State
+   emptyContainer: {
+     flex: 1,
+     backgroundColor: '#f8fafc',
+     justifyContent: 'center',
+     alignItems: 'center',
+     padding: 20,
+   },
+   emptyCard: {
+     backgroundColor: 'white',
+     borderRadius: 16,
+     padding: 32,
+     alignItems: 'center',
+     shadowColor: '#1e40af',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.1,
+     shadowRadius: 12,
+     elevation: 8,
+     maxWidth: 360,
+     borderWidth: 1,
+     borderColor: '#e2e8f0',
+   },
+   emptyIconContainer: {
+     width: 88,
+     height: 88,
+     borderRadius: 44,
+     backgroundColor: '#e0f2fe',
+     justifyContent: 'center',
+     alignItems: 'center',
+     marginBottom: 24,
+     borderWidth: 2,
+     borderColor: '#bae6fd',
+   },
+   emptyIcon: {
+     fontSize: 44,
+   },
+   emptyTitle: {
+     fontSize: 24,
+     fontWeight: '600',
+     color: '#1e293b',
+     marginBottom: 16,
+     textAlign: 'center',
+   },
+   emptySubtitle: {
+     fontSize: 16,
+     color: '#64748b',
+     textAlign: 'center',
+     lineHeight: 24,
+     marginBottom: 32,
+   },
+   emptyStats: {
+     flexDirection: 'row',
+     alignItems: 'center',
+   },
+   statItem: {
+     alignItems: 'center',
+     flex: 1,
+   },
+   statNumber: {
+     fontSize: 24,
+     fontWeight: '700',
+     color: '#0ea5e9',
+     marginBottom: 4,
+   },
+   statLabel: {
+     fontSize: 14,
+     color: '#64748b',
+     fontWeight: '500',
+   },
+   statDivider: {
+     width: 1,
+     height: 40,
+     backgroundColor: '#e2e8f0',
+     marginHorizontal: 20,
+   },
 
-  // Loading States
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-    maxWidth: 320,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  loadingSpinner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 4,
-    borderColor: '#e0f2fe',
-    borderTopColor: '#0ea5e9',
-    marginBottom: 24,
-  },
-  loadingTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  loadingSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    textAlign: 'center',
-  },
+   // Header
+   header: {
+     backgroundColor: 'transparent',
+     paddingTop: 60,
+     paddingBottom: 0,
+   },
+   headerGradient: {
+     backgroundColor: 'rgba(14, 165, 233, 0.95)',
+     paddingHorizontal: 24,
+     paddingVertical: 20,
+     borderBottomLeftRadius: 24,
+     borderBottomRightRadius: 24,
+     shadowColor: '#0ea5e9',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.3,
+     shadowRadius: 12,
+     elevation: 8,
+   },
+   headerContent: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+   },
+   headerLeft: {
+     flex: 1,
+   },
+   headerTitle: {
+     fontSize: 22,
+     fontWeight: '600',
+     color: 'white',
+     marginBottom: 4,
+   },
+   headerSubtitle: {
+     fontSize: 16,
+     color: 'rgba(255, 255, 255, 0.8)',
+     fontWeight: '500',
+   },
+   headerRight: {
+     alignItems: 'flex-end',
+   },
+   statCard: {
+     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+     borderRadius: 12,
+     paddingHorizontal: 16,
+     paddingVertical: 12,
+     alignItems: 'center',
+     borderWidth: 1,
+     borderColor: 'rgba(255, 255, 255, 0.3)',
+   },
+   statNumber: {
+     fontSize: 20,
+     fontWeight: '700',
+     color: 'white',
+     marginBottom: 2,
+   },
+   statLabel: {
+     fontSize: 12,
+     color: 'rgba(255, 255, 255, 0.8)',
+     fontWeight: '500',
+   },
 
-  // Empty State
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-    maxWidth: 360,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  emptyIconContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#e0f2fe',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#bae6fd',
-  },
-  emptyIcon: {
-    fontSize: 44,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  emptyStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0ea5e9',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#e2e8f0',
-    marginHorizontal: 20,
-  },
+   // Page Title
+   pageTitleContainer: {
+     paddingHorizontal: 24,
+     paddingVertical: 20,
+     backgroundColor: 'white',
+     marginTop: -12,
+     borderTopLeftRadius: 24,
+     borderTopRightRadius: 24,
+     shadowColor: '#000',
+     shadowOffset: { width: 0, height: -2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 4,
+   },
+   pageTitle: {
+     fontSize: 32,
+     fontWeight: '700',
+     color: '#1e293b',
+     marginBottom: 4,
+   },
+   pageSubtitle: {
+     fontSize: 16,
+     color: '#64748b',
+     fontWeight: '400',
+   },
 
-  // Header
-  header: {
-    backgroundColor: 'transparent',
-    paddingTop: 60,
-    paddingBottom: 0,
-  },
-  headerGradient: {
-    backgroundColor: 'rgba(14, 165, 233, 0.95)',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: 'white',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
-  },
-  headerRight: {
-    alignItems: 'flex-end',
-  },
-  statCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'white',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
-  },
+   // List
+   list: {
+     flex: 1,
+   },
+   listContent: {
+     padding: 16,
+     paddingBottom: 80,
+   },
 
-  // Page Title
-  pageTitleContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: 'white',
-    marginTop: -12,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  pageTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '400',
-  },
-
-  // List
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 80,
-  },
-
-  // Pill Cards
-  pillCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  pillCardContent: {
-    padding: 16,
-  },
-  pillHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  medicineInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  medicineName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  medicineType: {
-    fontSize: 14,
-    color: '#0ea5e9',
-    fontWeight: '500',
-  },
-  dateContainer: {
-    alignItems: 'flex-end',
-  },
-  date: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  statusBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#059669',
-    fontWeight: '600',
-  },
-  pillDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  detailValue: {
-    fontSize: 16,
-    color: '#1e293b',
-    lineHeight: 24,
-  },
-  pillFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  imageContainer: {
-    flex: 1,
-  },
-  thumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-  },
-  actionContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    color: '#0ea5e9',
-    fontWeight: '600',
-  },
-});
+   // Pill Cards
+   pillCard: {
+     backgroundColor: 'white',
+     borderRadius: 16,
+     marginBottom: 12,
+     shadowColor: '#1e40af',
+     shadowOffset: { width: 0, height: 2 },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 4,
+     borderWidth: 1,
+     borderColor: '#e2e8f0',
+   },
+   pillCardContent: {
+     padding: 16,
+   },
+   pillHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'flex-start',
+     marginBottom: 12,
+   },
+   medicineInfo: {
+     flex: 1,
+     marginRight: 16,
+   },
+   medicineName: {
+     fontSize: 18,
+     fontWeight: '600',
+     color: '#1e293b',
+     marginBottom: 4,
+   },
+   medicineType: {
+     fontSize: 14,
+     color: '#0ea5e9',
+     fontWeight: '500',
+   },
+   dateContainer: {
+     alignItems: 'flex-end',
+   },
+   date: {
+     fontSize: 12,
+     color: '#64748b',
+     marginBottom: 8,
+   },
+   statusBadge: {
+     backgroundColor: '#dcfce7',
+     paddingHorizontal: 8,
+     paddingVertical: 4,
+     borderRadius: 12,
+     borderWidth: 1,
+     borderColor: '#bbf7d0',
+   },
+   statusText: {
+     fontSize: 12,
+     color: '#059669',
+     fontWeight: '600',
+   },
+   pillDetails: {
+     marginBottom: 12,
+   },
+   detailRow: {
+     marginBottom: 8,
+   },
+   detailLabel: {
+     fontSize: 12,
+     fontWeight: '600',
+     color: '#64748b',
+     marginBottom: 4,
+     textTransform: 'uppercase',
+     letterSpacing: 0.5,
+   },
+   detailValue: {
+     fontSize: 16,
+     color: '#1e293b',
+     lineHeight: 24,
+   },
+   pillFooter: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+   },
+   imageContainer: {
+     flex: 1,
+   },
+   thumbnail: {
+     width: 60,
+     height: 60,
+     borderRadius: 12,
+   },
+   actionContainer: {
+     flex: 1,
+     alignItems: 'flex-end',
+   },
+   viewDetailsText: {
+     fontSize: 14,
+     color: '#0ea5e9',
+     fontWeight: '600',
+   },
+ });
 
 
 
