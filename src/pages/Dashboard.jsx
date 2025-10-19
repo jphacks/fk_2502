@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -24,6 +24,15 @@ export default function Dashboard() {
   const [weeklyData, setWeeklyData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Notification scheduling refs
+  const notifyTimersRef = useRef({}); // { [todoId]: timeoutId }
+  const notifiedRef = useRef(new Set()); // track which todos already notified for today
+
+  // Base URL for your Flask notify endpoint.
+  // On Android emulator use 10.0.2.2 -> points to host localhost. iOS simulator and web use localhost.
+  const NOTIFY_BASE = Platform.OS === 'android' ? 'http://10.0.2.2:6000' : 'http://localhost:6000';
+  const NOTIFY_URL = `${NOTIFY_BASE}/notify`;
 
   const progress = todos.length > 0 ? todos.filter(todo => todo.completed).length / todos.length : 0;
   const progressAnimation = useRef(new Animated.Value(0)).current;
@@ -259,6 +268,14 @@ export default function Dashboard() {
     
     console.log('🔄 Toggling todo:', todoId, 'Current state:', todo.completed);
     
+    // Clear any scheduled notification for this todo (user already took it / toggled it)
+    if (notifyTimersRef.current[todoId]) {
+      clearTimeout(notifyTimersRef.current[todoId]);
+      delete notifyTimersRef.current[todoId];
+    }
+    // Mark as notified so we don't notify again for today
+    notifiedRef.current.add(todoId);
+
     const today = new Date();
     // Format date as YYYY-MM-DD in local timezone
     const year = today.getFullYear();
@@ -413,6 +430,70 @@ export default function Dashboard() {
     if (progress === 1) return SUCCESS_GREEN;
     if (progress >= 0.6) return '#ffc107';
     return RED;
+  };
+
+  // When todos change schedule notifications for upcoming times
+  useEffect(() => {
+    // clear existing timers first
+    Object.values(notifyTimersRef.current).forEach(id => clearTimeout(id));
+    notifyTimersRef.current = {};
+
+    if (!todos || todos.length === 0) return;
+
+    const now = new Date();
+
+    todos.forEach(todo => {
+      // Only schedule for not completed items and not already notified
+      if (todo.completed || notifiedRef.current.has(todo.id)) return;
+
+      // Parse todo.timeSlot (expected "HH:mm")
+      const [hStr, mStr] = (todo.timeSlot || '00:00').split(':');
+      const target = new Date();
+      target.setHours(Number(hStr), Number(mStr), 0, 0);
+
+      const msUntil = target.getTime() - now.getTime();
+
+      // If time is in the future, schedule; if it's past and not completed, notify immediately
+      if (msUntil > 0) {
+        const id = setTimeout(() => {
+          sendNotify(todo);
+          notifiedRef.current.add(todo.id);
+          delete notifyTimersRef.current[todo.id];
+        }, msUntil);
+        notifyTimersRef.current[todo.id] = id;
+        console.log(`⏱ Scheduled notify for ${todo.id} in ${Math.round(msUntil/1000)}s`);
+      } else {
+        // if it's already past and not completed, notify right away
+        console.log(`🔔 Time passed for ${todo.id}, sending immediate notify`);
+        sendNotify(todo);
+        notifiedRef.current.add(todo.id);
+      }
+    });
+
+    return () => {
+      Object.values(notifyTimersRef.current).forEach(id => clearTimeout(id));
+      notifyTimersRef.current = {};
+    };
+  }, [todos]);
+
+  // Fire the notify endpoint (no payload required by your Flask endpoint)
+  const sendNotify = async (todo) => {
+    try {
+      console.log('📣 Sending notify for', todo.id, 'to', NOTIFY_URL);
+      await fetch(NOTIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // optional helpful body for server logs
+        body: JSON.stringify({
+          title: 'PillPal Reminder',
+          message: `Time to take: ${todo.text} (${todo.time})`,
+          todoId: todo.id,
+        })
+      });
+      console.log('✅ Notify sent for', todo.id);
+    } catch (err) {
+      console.error('❌ Failed to call notify endpoint', err);
+    }
   };
 
   if (loading) {

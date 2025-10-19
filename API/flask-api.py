@@ -223,6 +223,7 @@ def notification():
             "Tags": "alarm_clock" 
         }
     )
+    return jsonify({"status":"sent"}), 200
 
 
 @app.route('/email', methods=['POST'])
