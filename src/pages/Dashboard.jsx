@@ -4,12 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
-const RED = 'rgb(186, 73, 73)';
+const RED = 'rgba(14, 165, 233, 0.95)';
 const LIGHT_GRAY = '#f8f9fa';
 const DARK_GRAY = '#6c757d';
 const SUCCESS_GREEN = '#28a745';
 const WHITE = '#ffffff';
-const PRIMARY_RED = 'rgb(186, 73, 73)';
+const PRIMARY_RED = 'rgba(14, 165, 233, 0.95)';
 const LIGHT_BACKGROUND = '#f8f9fa';
 const TEXT_DARK = '#333333';
 const TEXT_MEDIUM = '#6c757d';

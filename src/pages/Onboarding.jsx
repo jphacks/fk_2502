@@ -4,7 +4,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 
-const RED = 'rgb(186, 73, 73)';
+const RED = 'rgba(14, 165, 233, 0.95)';
 
 export default function Onboarding() {
   const { user, refreshProfile } = useAuth();

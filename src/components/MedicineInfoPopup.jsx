@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-const PRIMARY_RED = 'rgb(186, 73, 73)';
+const PRIMARY_RED = 'rgba(14, 165, 233, 0.95)';
 const LIGHT_BACKGROUND = '#f8f9fa';
 const TEXT_DARK = '#333333';
 const TEXT_MEDIUM = '#6c757d';

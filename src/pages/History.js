@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, TextInput, Modal } from 'react-native';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
-const RED = 'rgb(186, 73, 73)';
+import QRCode from 'react-native-qrcode-svg';
 
+const RED = 'rgba(14, 165, 233, 0.95)';
 const USE_DUMMY = true;
 
 export default function History() {
@@ -14,51 +15,52 @@ export default function History() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [showQRCode, setShowQRCode] = useState(false);
 
   useEffect(() => {
-  if (!user) {
-    setLoading(false);
-    return;
-  }
-
-  // Correctly reference the single document belonging to the user
-  const docRef = doc(db, 'history', user.uid);
-
-  const unsubscribe = onSnapshot(docRef, (docSnap) => {
-    try {
-      if (docSnap.exists()) {
-        const data = docSnap.data() || {};
-        // The document's data contains the medications array
-        const meds = (data.medications || []).map(m => ({
-          id: m.medicationId || `${docSnap.id}_${m.pillName}`,
-          medicineName: m.pillName,
-          dosage: m.dosage ?? m.dosageInfo ?? '',
-          instructions: m.instructions ?? '',
-          imageUrl: m.imageUrl ?? null,
-          startDate: m.startDate ?? null,
-          endDate: m.endDate ?? null,
-          duration: m.duration ?? null,
-          analyzedAt: m.scannedAt ?? null,
-          createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
-        }));
-        setPills(meds);
-      } else {
-        // Handle case where the user has no history document yet
-        console.log("No history document found for this user.");
-        setPills([]);
-      }
+    if (!user) {
       setLoading(false);
-    } catch (err) {
-      console.error('Error processing history snapshot:', err);
-      setLoading(false);
+      return;
     }
-  }, (error) => {
-    console.error('Error fetching history:', error);
-    setLoading(false);
-  });
 
-  return () => unsubscribe();
-}, [user]);
+    // Correctly reference the single document belonging to the user
+    const docRef = doc(db, 'history', user.uid);
+
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      try {
+        if (docSnap.exists()) {
+          const data = docSnap.data() || {};
+          // The document's data contains the medications array
+          const meds = (data.medications || []).map(m => ({
+            id: m.medicationId || `${docSnap.id}_${m.pillName}`,
+            medicineName: m.pillName,
+            dosage: m.dosage ?? m.dosageInfo ?? '',
+            instructions: m.instructions ?? '',
+            imageUrl: m.imageUrl ?? null,
+            startDate: m.startDate ?? null,
+            endDate: m.endDate ?? null,
+            duration: m.duration ?? null,
+            analyzedAt: m.scannedAt ?? null,
+            createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
+          }));
+          setPills(meds);
+        } else {
+          // Handle case where the user has no history document yet
+          console.log("No history document found for this user.");
+          setPills([]);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Error processing history snapshot:', err);
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error('Error fetching history:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Derived filtered list (case-insensitive search across medicineName, dosage, instructions)
   const filteredPills = useMemo(() => {
@@ -76,6 +78,53 @@ export default function History() {
       return name.includes(q) || dosage.includes(q) || instr.includes(q);
     });
   }, [pills, searchQuery]);
+
+  // Generate data for QR code
+  const generateQRData = () => {
+    const medicationData = pills.map(pill => ({
+      name: pill.medicineName,
+      dosage: pill.dosage,
+      instructions: pill.instructions,
+      duration: pill.duration,
+      analyzedAt: pill.analyzedAt
+    }));
+
+    // Create a URL with the data encoded
+    const encodedData = encodeURIComponent(JSON.stringify(medicationData));
+    // You would replace this with your actual web viewer URL
+    return `https://medication-history-viewer.web.app/?data=${encodedData}`;
+  };
+
+  // QR Code Modal
+  const renderQRCodeModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showQRCode}
+      onRequestClose={() => setShowQRCode(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Scan QR Code</Text>
+          <Text style={styles.modalSubtitle}>Scan this code to view medication history</Text>
+          <View style={styles.qrContainer}>
+            <QRCode
+              value={generateQRData()}
+              size={250}
+              backgroundColor="white"
+              color="black"
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowQRCode(false)}
+          >
+            <Text style={styles.closeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderPillItem = ({ item }) => (
     <TouchableOpacity style={styles.pillCard} onPress={() => showPillDetails(item)}>
@@ -192,6 +241,9 @@ export default function History() {
 
   return (
     <View style={styles.container}>
+      {/* QR Code Modal */}
+      {renderQRCodeModal()}
+      
       {/* Search bar above the medicine cards */}
       <View style={styles.searchContainer}>
         <TextInput
@@ -207,6 +259,12 @@ export default function History() {
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
         ) : null}
+        <TouchableOpacity
+          style={styles.qrButton}
+          onPress={() => setShowQRCode(true)}
+        >
+          <Text style={styles.qrButtonText}>QR</Text>
+        </TouchableOpacity>
       </View>
        {/* Medication List */}
        <FlatList
@@ -268,6 +326,64 @@ export default function History() {
    clearButtonText: {
      fontSize: 18,
      color: '#64748b',
+   },
+   qrButton: {
+     marginLeft: 8,
+     padding: 8,
+     justifyContent: 'center',
+     alignItems: 'center',
+     backgroundColor: '#0ea5e9',
+     borderRadius: 8,
+   },
+   qrButtonText: {
+     fontSize: 16,
+     color: 'white',
+     fontWeight: '600',
+   },
+
+   // Modal
+   modalContainer: {
+     flex: 1,
+     justifyContent: 'center',
+     alignItems: 'center',
+     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+   },
+   modalContent: {
+     backgroundColor: 'white',
+     borderRadius: 16,
+     padding: 24,
+     alignItems: 'center',
+     shadowColor: '#000',
+     shadowOffset: { width: 0, height: 4 },
+     shadowOpacity: 0.1,
+     shadowRadius: 8,
+     elevation: 8,
+   },
+   modalTitle: {
+     fontSize: 20,
+     fontWeight: '600',
+     color: '#1e293b',
+     marginBottom: 8,
+   },
+   modalSubtitle: {
+     fontSize: 14,
+     color: '#64748b',
+     textAlign: 'center',
+     marginBottom: 16,
+   },
+   qrContainer: {
+     marginBottom: 16,
+   },
+   closeButton: {
+     backgroundColor: '#0ea5e9',
+     borderRadius: 8,
+     paddingHorizontal: 16,
+     paddingVertical: 8,
+   },
+   closeButtonText: {
+     fontSize: 16,
+     color: 'white',
+     fontWeight: '600',
    },
 
    // Loading States
