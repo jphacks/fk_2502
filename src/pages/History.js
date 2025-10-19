@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 import QRCode from 'react-native-qrcode-svg';
 
-const RED = 'rgb(186, 73, 73)';
+const RED = 'rgba(14, 165, 233, 0.95)';
 const USE_DUMMY = true;
 
 export default function History() {

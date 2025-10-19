@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfi
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 
-const RED = 'rgb(186, 73, 73)';
+const RED = 'rgba(14, 165, 233, 0.95)';
 
 export default function AuthScreen() {
   const [mode, setMode] = useState('signup');

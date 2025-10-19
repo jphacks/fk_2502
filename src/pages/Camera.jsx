@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { storage, db } from '../firebaseConfig';
 import MedicineInfoPopup from '../components/MedicineInfoPopup';
 
-const RED = 'rgb(186, 73, 73)';
+const RED = 'rgba(14, 165, 233, 0.95)';
 
 export default function Camera() {
   const { user } = useAuth();
