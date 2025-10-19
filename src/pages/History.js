@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebaseConfig';
 const RED = 'rgb(186, 73, 73)';
@@ -13,62 +13,49 @@ export default function History() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // use 'history' collection and pick medications that belong to the current user
-    if (!user) return;
+  if (!user) {
+    setLoading(false);
+    return;
+  }
 
-    const col = collection(db, 'history');
-    const unsubscribe = onSnapshot(col, (snapshot) => {
-      try {
-        const meds = snapshot.docs.flatMap(doc => {
-          const data = doc.data() || {};
-          // match by common uid field names or document id (adjust if your schema is different)
-          const matchesUser = data.userId === user.uid || data.uid === user.uid || doc.id === user.uid;
-          if (!matchesUser) return [];
+  // Correctly reference the single document belonging to the user
+  const docRef = doc(db, 'history', user.uid);
 
-          return (data.medications || []).map(m => ({
-            id: m.medicationId || `${doc.id}_${m.pillName}`,
-            medicineName: m.pillName,
-            dosage: m.dosage ?? m.dosageInfo ?? '',
-            instructions: m.instructions ?? '',
-            imageUrl: m.imageUrl ?? null,
-            startDate: m.startDate ?? null,
-            endDate: m.endDate ?? null,
-            duration: m.duration ?? null,
-            analyzedAt: m.scannedAt ?? null,
-            createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
-          }));
-        });
-
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    try {
+      if (docSnap.exists()) {
+        const data = docSnap.data() || {};
+        // The document's data contains the medications array
+        const meds = (data.medications || []).map(m => ({
+          id: m.medicationId || `${docSnap.id}_${m.pillName}`,
+          medicineName: m.pillName,
+          dosage: m.dosage ?? m.dosageInfo ?? '',
+          instructions: m.instructions ?? '',
+          imageUrl: m.imageUrl ?? null,
+          startDate: m.startDate ?? null,
+          endDate: m.endDate ?? null,
+          duration: m.duration ?? null,
+          analyzedAt: m.scannedAt ?? null,
+          createdAt: m.scannedAt ?? m.createdAt ?? new Date().toISOString(),
+        }));
         setPills(meds);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error processing history snapshot:', err);
-        setLoading(false);
+      } else {
+        // Handle case where the user has no history document yet
+        console.log("No history document found for this user.");
+        setPills([]);
       }
-    }, (error) => {
-      console.error('Error fetching history:', error);
       setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown date';
-    // handle Firestore Timestamp, ISO string, or Date
-    let dateObj;
-    if (typeof timestamp?.toDate === 'function') {
-      dateObj = timestamp.toDate();
-    } else if (typeof timestamp === 'string') {
-      dateObj = new Date(timestamp);
-    } else if (timestamp instanceof Date) {
-      dateObj = timestamp;
-    } else {
-      dateObj = new Date(timestamp);
+    } catch (err) {
+      console.error('Error processing history snapshot:', err);
+      setLoading(false);
     }
-    return dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
-  };
+  }, (error) => {
+    console.error('Error fetching history:', error);
+    setLoading(false);
+  });
 
+  return () => unsubscribe();
+}, [user]);
   const renderPillItem = ({ item }) => (
     <TouchableOpacity style={styles.pillCard} onPress={() => showPillDetails(item)}>
       <View style={styles.pillCardContent}>
@@ -196,6 +183,20 @@ export default function History() {
     </View>
   );
 }
+
+// Helper: safe date formatter used by History
+const formatDate = (value) => {
+  if (!value) return '';
+  try {
+    const d = value instanceof Date
+      ? value
+      : (typeof value === 'number' ? new Date(value) : new Date(value));
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return '';
+  }
+};
 
 const styles = StyleSheet.create({
   // Main Container
