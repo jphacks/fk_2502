@@ -7,6 +7,10 @@ from google import genai
 from google.genai import types
 from flask import Flask, request, jsonify
 import requests
+import smtplib
+import ssl
+from email.message import EmailMessage
+
 
 load_dotenv()
 
@@ -220,7 +224,44 @@ def notification():
         }
     )
 
-print("Notification sent!")
+
+@app.route('/email', methods=['POST'])
+def send_notification():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+    try:
+        SENDER_EMAIL = data.get("sender_email")
+        SENDER_PASSWORD = data.get("sender_password")
+        RECIPIENT_EMAIL = data.get("recipient_email")
+        title = data.get('title', 'PillPal Alert') 
+        message = data.get('message', 'This is an automated alert from PillPal.') 
+
+
+        if not all([SENDER_EMAIL, SENDER_PASSWORD, RECIPIENT_EMAIL]):
+            return jsonify({"error": "Missing sender_email, sender_password, or recipient_email in JSON payload"}), 400
+
+        print(f"Sending email to: {RECIPIENT_EMAIL}")
+        msg = EmailMessage()
+        msg['Subject'] = title
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = RECIPIENT_EMAIL
+        msg.set_content(f"{message}\n\n(This is an automated alert from PillPal.)")
+
+        context = ssl.create_default_context()
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.send_message(msg)
+            print("Email sent successfully!")
+
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return jsonify({"error": f"Failed to send email: {e}"}), 500
+
+    return jsonify({"status": "success", "message": "Email sent successfully"}), 200
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=6000, debug=True)
