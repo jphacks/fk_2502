@@ -1,8 +1,7 @@
 <img width="1104" height="718" alt="image" src="https://github.com/user-attachments/assets/ccd23675-6b13-4425-a29e-f9c383962101" /># PillPal (ピルパル) 💊
 
 ## アプリケーションデモ
-[![Watch the video](<img width="453" height="359" alt="image" src="https://github.com/user-attachments/assets/6ce6ee6e-1275-41b8-99c4-dd077ba0c102" />
-)](https://youtu.be/32WarQNLVqs)
+[![Watch the video](https://media.discordapp.net/attachments/1428692551208144908/1429357359439941704/image.png?ex=68f5d846&is=68f486c6&hm=67b4db3da3b4af45b84306510fa8dd5d4e7f735b1496a56caa0f9732868c3f22&=&format=webp&quality=lossless&width=906&height=718)](https://youtu.be/32WarQNLVqs)
 
 薬の飲み忘れは誰にでもあることです。PillPalは、処方箋をスキャンするだけで服薬を簡単に思い出せる、スマートなリマインダーアプリです。
 
