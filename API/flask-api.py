@@ -6,6 +6,7 @@ import chromadb
 from google import genai
 from google.genai import types
 from flask import Flask, request, jsonify
+import requests
 
 load_dotenv()
 
@@ -95,15 +96,13 @@ async def get_med_details(med_name: str):
     print(response.text)
     with open("response.txt", "a", encoding="utf-8") as f:
         f.write(response.text + "\n")
-    
-    # ✅ FIX: Parse JSON before returning
+
     return json.loads(response.text)
 
 
 async def main(content):
     try:
         print("content is", content)
-        # content is already a dict, no need to parse again
         medicine_name_to_search = content.get("name")
         print(f"Searching for medicine: {medicine_name_to_search}")
 
@@ -205,6 +204,23 @@ def process():
         print(f"Error in /process endpoint: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/notify', methods= ["POST"])
+def notification():
+    topic = 'PillPal' 
+    message = 'お薬を飲んでください! 💊'
+    title = 'Pill Pal - リマインダー'
+
+    requests.post(
+        f"https://ntfy.sh/{topic}",
+        data=message.encode('utf-8'), 
+        headers={
+            "Title": title.encode('utf-8'), 
+            "Priority": "high", 
+            "Tags": "alarm_clock" 
+        }
+    )
+
+print("Notification sent!")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=6000, debug=True)
