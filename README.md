@@ -1,4 +1,4 @@
-<img width="1104" height="718" alt="image" src="https://github.com/user-attachments/assets/ccd23675-6b13-4425-a29e-f9c383962101" /># PillPal (ピルパル) 💊
+# PillPal (ピルパル) 💊
 
 ## アプリケーションデモ
 [![Watch the video](https://media.discordapp.net/attachments/1428692551208144908/1429357359439941704/image.png?ex=68f5d846&is=68f486c6&hm=67b4db3da3b4af45b84306510fa8dd5d4e7f735b1496a56caa0f9732868c3f22&=&format=webp&quality=lossless&width=906&height=718)](https://youtu.be/32WarQNLVqs)
